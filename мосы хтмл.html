@@ -1,0 +1,1216 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ЗапЧасти — Mini App</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f0f2f5;
+    --tg-bg: #ffffff;
+    --surface: #ffffff;
+    --surface2: #f7f8fa;
+    --border: #e8eaed;
+    --text: #1a1a2e;
+    --text2: #6b7280;
+    --accent: #2563eb;
+    --accent-light: #eff6ff;
+    --green: #16a34a;
+    --green-light: #f0fdf4;
+    --red: #dc2626;
+    --tg-header: #2563eb;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-lg: 0 10px 25px rgba(0,0,0,0.12);
+  }
+
+  body {
+    font-family: 'Manrope', sans-serif;
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  /* Phone frame */
+  .phone-frame {
+    width: 375px;
+    height: 780px;
+    background: #1a1a2e;
+    border-radius: 44px;
+    padding: 12px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.1);
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .phone-notch {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 28px;
+    background: #1a1a2e;
+    border-radius: 0 0 16px 16px;
+    z-index: 10;
+  }
+
+  .phone-screen {
+    width: 100%;
+    height: 100%;
+    background: var(--tg-bg);
+    border-radius: 34px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Telegram header */
+  .tg-header {
+    background: var(--tg-header);
+    padding: 44px 16px 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .tg-back { color: white; font-size: 18px; cursor: pointer; opacity: 0.9; }
+
+  .tg-bot-info { flex: 1; }
+  .tg-bot-name { color: white; font-size: 15px; font-weight: 600; line-height: 1; }
+  .tg-bot-status { color: rgba(255,255,255,0.7); font-size: 11px; margin-top: 2px; }
+
+  .tg-avatar {
+    width: 34px; height: 34px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+
+  /* App content */
+  .app-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+  }
+  .app-content::-webkit-scrollbar { display: none; }
+
+  /* Pages */
+  .page { display: none; }
+  .page.active { display: block; animation: fadeIn 0.2s ease; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Search bar */
+  .search-bar {
+    padding: 12px 14px;
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 5;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .search-input {
+    width: 100%;
+    background: var(--surface2);
+    border: none;
+    border-radius: 10px;
+    padding: 9px 12px 9px 36px;
+    font-size: 14px;
+    font-family: 'Manrope', sans-serif;
+    color: var(--text);
+    outline: none;
+    position: relative;
+  }
+
+  .search-wrap { position: relative; }
+  .search-icon {
+    position: absolute;
+    left: 11px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--text2);
+    font-size: 14px;
+    pointer-events: none;
+  }
+
+  /* AI search states */
+  .ai-thinking {
+    display: none;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 500;
+    align-items: center;
+    gap: 8px;
+  }
+  .ai-thinking.visible { display: flex; }
+
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--accent-light);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .ai-interpreted {
+    display: none;
+    margin: 0 14px 10px;
+    background: var(--accent-light);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--accent);
+    border-left: 3px solid var(--accent);
+    line-height: 1.5;
+  }
+  .ai-interpreted.visible { display: block; }
+  .ai-interpreted strong { font-weight: 700; }
+
+  /* Manual request banner */
+  .manual-request-banner {
+    display: none;
+    margin: 0 14px 12px;
+    background: #fffbeb;
+    border: 1.5px dashed #f59e0b;
+    border-radius: 12px;
+    padding: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .manual-request-banner:active { background: #fef3c7; }
+  .manual-request-banner.visible { display: block; }
+  .mrb-top { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .mrb-icon { font-size: 18px; }
+  .mrb-title { font-size: 13px; font-weight: 700; color: #92400e; }
+  .mrb-text { font-size: 12px; color: #b45309; line-height: 1.4; }
+
+  /* Manual request modal */
+  .modal-overlay {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 20;
+    align-items: flex-end;
+    border-radius: 34px;
+    overflow: hidden;
+  }
+  .modal-overlay.visible { display: flex; }
+
+  .modal-sheet {
+    background: white;
+    width: 100%;
+    border-radius: 20px 20px 0 0;
+    padding: 20px 16px 28px;
+    animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+  .modal-handle {
+    width: 36px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: 0 auto 16px;
+  }
+  .modal-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .modal-sub { font-size: 12px; color: var(--text2); margin-bottom: 16px; line-height: 1.5; }
+
+  .modal-textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 13px;
+    font-size: 14px;
+    font-family: 'Manrope', sans-serif;
+    color: var(--text);
+    outline: none;
+    resize: none;
+    height: 90px;
+    margin-bottom: 12px;
+    transition: border-color 0.15s;
+  }
+  .modal-textarea:focus { border-color: var(--accent); }
+
+  .modal-hints { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .hint-chip {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 4px 10px;
+    font-size: 11px;
+    color: var(--text2);
+    cursor: pointer;
+    font-family: 'Manrope', sans-serif;
+    transition: all 0.15s;
+  }
+  .hint-chip:active { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+
+  .modal-send-btn {
+    width: 100%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    padding: 13px;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: 'Manrope', sans-serif;
+    cursor: pointer;
+  }
+  .modal-cancel {
+    width: 100%;
+    background: none;
+    border: none;
+    color: var(--text2);
+    font-size: 13px;
+    font-family: 'Manrope', sans-serif;
+    cursor: pointer;
+    margin-top: 10px;
+    padding: 4px;
+  }
+
+  /* Request sent confirmation */
+  .request-sent {
+    display: none;
+    margin: 0 14px 12px;
+    background: var(--green-light);
+    border-radius: 12px;
+    padding: 12px;
+    align-items: center;
+    gap: 10px;
+    animation: fadeIn 0.2s ease;
+  }
+  .request-sent.visible { display: flex; }
+  .request-sent-icon { font-size: 20px; }
+  .request-sent-text { font-size: 12px; color: var(--green); font-weight: 600; line-height: 1.4; }
+
+  /* Category chips */
+  .category-strip {
+    display: flex;
+    gap: 8px;
+    padding: 12px 14px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .category-strip::-webkit-scrollbar { display: none; }
+
+  .chip {
+    flex-shrink: 0;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1.5px solid var(--border);
+    color: var(--text2);
+    background: white;
+    transition: all 0.15s;
+  }
+  .chip.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+
+  /* Section label */
+  .section-label {
+    padding: 4px 14px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text2);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* Product cards */
+  .product-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 0 14px 14px;
+  }
+
+  .product-card {
+    background: white;
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    border: 1px solid var(--border);
+  }
+  .product-card:active { transform: scale(0.97); }
+
+  .product-img {
+    width: 100%;
+    aspect-ratio: 1;
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+  }
+
+  .product-info { padding: 10px; }
+  .product-name { font-size: 12px; font-weight: 600; color: var(--text); line-height: 1.3; margin-bottom: 2px; }
+  .product-compat { font-size: 10px; color: var(--text2); margin-bottom: 6px; }
+
+  .product-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .product-price { font-size: 14px; font-weight: 700; color: var(--text); }
+
+  .add-btn {
+    width: 26px; height: 26px;
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+    font-weight: 300;
+    line-height: 1;
+  }
+  .add-btn:active { background: #1d4ed8; }
+  .add-btn.added { background: var(--green); }
+
+  /* Cart bar */
+  .cart-bar {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    border-top: 1px solid var(--border);
+    padding: 12px 14px;
+    display: none;
+  }
+  .cart-bar.visible { display: block; }
+
+  .cart-btn {
+    width: 100%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    padding: 14px;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: 'Manrope', sans-serif;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background 0.15s;
+  }
+  .cart-btn:active { background: #1d4ed8; }
+  .cart-btn-left { display: flex; align-items: center; gap: 8px; }
+  .cart-count-badge {
+    background: rgba(255,255,255,0.25);
+    border-radius: 6px;
+    padding: 2px 7px;
+    font-size: 12px;
+  }
+
+  /* Cart page */
+  .cart-header {
+    padding: 16px 14px 8px;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .cart-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    background: white;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .cart-item-emoji {
+    width: 44px; height: 44px;
+    background: var(--surface2);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+  }
+
+  .cart-item-info { flex: 1; }
+  .cart-item-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .cart-item-compat { font-size: 11px; color: var(--text2); margin-top: 1px; }
+
+  .cart-item-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .cart-item-price { font-size: 14px; font-weight: 700; color: var(--text); }
+
+  .qty-control {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .qty-btn {
+    width: 24px; height: 24px;
+    border-radius: 6px;
+    border: 1.5px solid var(--border);
+    background: white;
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600;
+  }
+  .qty-btn.minus { color: var(--red); border-color: #fecaca; }
+  .qty-num { font-size: 14px; font-weight: 600; min-width: 16px; text-align: center; }
+
+  .cart-summary {
+    margin: 12px 14px;
+    background: var(--surface2);
+    border-radius: var(--radius);
+    padding: 14px;
+  }
+
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--text2);
+    margin-bottom: 8px;
+  }
+  .summary-row:last-child { margin-bottom: 0; }
+  .summary-row.total {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+    margin-top: 4px;
+  }
+
+  .checkout-btn {
+    width: 100%;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--radius);
+    padding: 15px;
+    font-size: 15px;
+    font-weight: 700;
+    font-family: 'Manrope', sans-serif;
+    cursor: pointer;
+    margin: 0 14px;
+    width: calc(100% - 28px);
+    display: block;
+    transition: background 0.15s;
+  }
+  .checkout-btn:active { background: #1d4ed8; }
+
+  /* Order form */
+  .order-form { padding: 14px; }
+
+  .form-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .form-subtitle { font-size: 13px; color: var(--text2); margin-bottom: 20px; }
+
+  .form-label { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; display: block; letter-spacing: 0.04em; }
+
+  .form-field {
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 11px 13px;
+    font-size: 14px;
+    font-family: 'Manrope', sans-serif;
+    color: var(--text);
+    outline: none;
+    margin-bottom: 14px;
+    transition: border-color 0.15s;
+    background: white;
+  }
+  .form-field:focus { border-color: var(--accent); }
+
+  .radio-group { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+  .radio-option {
+    display: flex; align-items: center; gap: 10px;
+    padding: 11px 13px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .radio-option.selected { border-color: var(--accent); background: var(--accent-light); }
+  .radio-dot {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.15s;
+  }
+  .radio-option.selected .radio-dot { border-color: var(--accent); background: var(--accent); }
+  .radio-option.selected .radio-dot::after {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: white;
+  }
+  .radio-text { font-size: 13px; font-weight: 500; color: var(--text); }
+  .radio-sub { font-size: 11px; color: var(--text2); }
+
+  /* Success page */
+  .success-page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    text-align: center;
+    height: 100%;
+    min-height: 500px;
+  }
+
+  .success-icon {
+    width: 72px; height: 72px;
+    background: var(--green-light);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+    margin-bottom: 20px;
+    animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  @keyframes pop { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  .success-title { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  .success-text { font-size: 14px; color: var(--text2); line-height: 1.6; margin-bottom: 24px; }
+
+  .order-num {
+    background: var(--surface2);
+    border-radius: var(--radius);
+    padding: 14px 20px;
+    margin-bottom: 24px;
+    width: 100%;
+  }
+  .order-num-label { font-size: 11px; color: var(--text2); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+  .order-num-val { font-size: 22px; font-weight: 700; color: var(--accent); margin-top: 4px; }
+
+  .back-home-btn {
+    width: 100%;
+    background: var(--accent-light);
+    color: var(--accent);
+    border: none;
+    border-radius: var(--radius);
+    padding: 13px;
+    font-size: 14px;
+    font-weight: 700;
+    font-family: 'Manrope', sans-serif;
+    cursor: pointer;
+  }
+
+  /* Info panel next to phone */
+  .info-panel {
+    max-width: 280px;
+    padding: 0 0 0 32px;
+  }
+
+  .info-panel h2 {
+    font-family: 'Manrope', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin-bottom: 8px;
+  }
+
+  .info-panel p {
+    font-family: 'Manrope', sans-serif;
+    font-size: 14px;
+    color: #6b7280;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+
+  .step {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+    align-items: flex-start;
+  }
+
+  .step-num {
+    width: 28px; height: 28px;
+    background: #eff6ff;
+    border-radius: 50%;
+    color: #2563eb;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Manrope', sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .step-text {
+    font-family: 'Manrope', sans-serif;
+    font-size: 13px;
+    color: #374151;
+    line-height: 1.5;
+    padding-top: 4px;
+  }
+
+  .tag {
+    display: inline-block;
+    background: #f0fdf4;
+    color: #16a34a;
+    border-radius: 6px;
+    padding: 3px 9px;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: 'Manrope', sans-serif;
+    margin-bottom: 16px;
+  }
+
+  .wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  @media (max-width: 700px) {
+    .info-panel { display: none; }
+    .wrapper { padding: 10px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Info panel -->
+  <div class="info-panel">
+    <div class="tag">✦ Прототип</div>
+    <h2>Telegram Mini App для запчастей</h2>
+    <p>Вот как это выглядит для клиента. Листай вниз, добавляй товары в корзину и оформляй заказ — всё работает!</p>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-text">Клиент пишет боту и открывает каталог запчастей</div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-text">Добавляет нужные позиции в корзину</div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-text">Оформляет заказ — менеджер получает уведомление</div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-text">Готово. Без звонков и переписки</div>
+    </div>
+  </div>
+
+  <!-- Phone frame -->
+  <div class="phone-frame">
+    <div class="phone-notch"></div>
+    <div class="phone-screen">
+
+      <!-- Telegram header -->
+      <div class="tg-header">
+        <div class="tg-back" id="backBtn" onclick="goBack()">‹</div>
+        <div class="tg-avatar">📱</div>
+        <div class="tg-bot-info">
+          <div class="tg-bot-name">ЗапчастиБот</div>
+          <div class="tg-bot-status">онлайн</div>
+        </div>
+      </div>
+
+      <!-- App content -->
+      <div class="app-content" id="appContent">
+
+        <!-- CATALOG PAGE -->
+        <div class="page active" id="page-catalog">
+          <div class="search-bar">
+            <div class="search-wrap">
+              <span class="search-icon">🔍</span>
+              <input class="search-input" id="searchInput" placeholder="Попробуй: 'зад самса', 'акб 13'..." oninput="onSearch(this.value)">
+            </div>
+          </div>
+
+          <div class="ai-thinking" id="aiThinking">
+            <div class="spinner"></div>
+            <span>AI разбирает запрос...</span>
+          </div>
+
+          <div class="ai-interpreted" id="aiInterpreted"></div>
+
+          <div class="request-sent" id="requestSent">
+            <div class="request-sent-icon">✅</div>
+            <div class="request-sent-text">Запрос отправлен менеджеру. Ответим в течение 15 минут.</div>
+          </div>
+
+          <div class="manual-request-banner" id="manualBanner" onclick="openManualModal()">
+            <div class="mrb-top">
+              <div class="mrb-icon">💬</div>
+              <div class="mrb-title">Не нашли нужное?</div>
+            </div>
+            <div class="mrb-text">Опишите запчасть своими словами — менеджер подберёт и ответит быстро.</div>
+          </div>
+
+          <div class="category-strip" id="categoryStrip">
+            <div class="chip active" onclick="filterChip(this, 'all')">Все</div>
+            <div class="chip" onclick="filterChip(this, 'screen')">Экраны</div>
+            <div class="chip" onclick="filterChip(this, 'battery')">Аккумуляторы</div>
+            <div class="chip" onclick="filterChip(this, 'camera')">Камеры</div>
+            <div class="chip" onclick="filterChip(this, 'case')">Корпуса</div>
+          </div>
+
+          <div class="section-label" id="sectionLabel">Популярные</div>
+
+          <div class="product-grid" id="productGrid"></div>
+
+          <!-- Manual request modal -->
+          <div class="modal-overlay" id="manualModal" onclick="closeModalIfOutside(event)">
+            <div class="modal-sheet">
+              <div class="modal-handle"></div>
+              <div class="modal-title">Запрос менеджеру</div>
+              <div class="modal-sub">Опишите что нужно как угодно — модель, симптом, как называете сами. Мы поймём.</div>
+              <textarea class="modal-textarea" id="manualText" placeholder="Например: нужен зад на самса а52, синий, срочно..."></textarea>
+              <div class="modal-hints">
+                <div class="hint-chip" onclick="appendHint('задняя крышка ')">задняя крышка</div>
+                <div class="hint-chip" onclick="appendHint('аккумулятор ')">аккумулятор</div>
+                <div class="hint-chip" onclick="appendHint('дисплей ')">дисплей</div>
+                <div class="hint-chip" onclick="appendHint('iPhone ')">iPhone</div>
+                <div class="hint-chip" onclick="appendHint('Samsung ')">Samsung</div>
+                <div class="hint-chip" onclick="appendHint('срочно ')">срочно</div>
+              </div>
+              <button class="modal-send-btn" onclick="sendManualRequest()">📨 Отправить запрос</button>
+              <button class="modal-cancel" onclick="closeManualModal()">Отмена</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- CART PAGE -->
+        <div class="page" id="page-cart">
+          <div class="cart-header">Корзина</div>
+          <div id="cartItems"></div>
+          <div class="cart-summary" id="cartSummary"></div>
+          <button class="checkout-btn" onclick="showPage('form')" style="margin-top:12px">Оформить заказ →</button>
+          <div style="height: 20px;"></div>
+        </div>
+
+        <!-- ORDER FORM PAGE -->
+        <div class="page" id="page-form">
+          <div class="order-form">
+            <div class="form-title">Оформление</div>
+            <div class="form-subtitle">Заполни данные — менеджер свяжется для подтверждения</div>
+
+            <label class="form-label">Имя</label>
+            <input class="form-field" placeholder="Алексей" value="">
+
+            <label class="form-label">Телефон</label>
+            <input class="form-field" placeholder="+7 900 000 00 00" value="">
+
+            <label class="form-label">Комментарий к заказу</label>
+            <input class="form-field" placeholder="Нужно срочно, совместимость с iPhone 13 Pro...">
+
+            <label class="form-label">Способ получения</label>
+            <div class="radio-group">
+              <div class="radio-option selected" onclick="selectRadio(this)">
+                <div class="radio-dot"></div>
+                <div>
+                  <div class="radio-text">Самовывоз</div>
+                  <div class="radio-sub">г. Алматы, ул. Абая 10</div>
+                </div>
+              </div>
+              <div class="radio-option" onclick="selectRadio(this)">
+                <div class="radio-dot"></div>
+                <div>
+                  <div class="radio-text">Доставка курьером</div>
+                  <div class="radio-sub">от 500 ₸, 1–2 дня</div>
+                </div>
+              </div>
+              <div class="radio-option" onclick="selectRadio(this)">
+                <div class="radio-dot"></div>
+                <div>
+                  <div class="radio-text">Почта / СДЭК</div>
+                  <div class="radio-sub">3–7 дней</div>
+                </div>
+              </div>
+            </div>
+
+            <button class="checkout-btn" style="margin: 0; width: 100%;" onclick="submitOrder()">✓ Подтвердить заказ</button>
+          </div>
+        </div>
+
+        <!-- SUCCESS PAGE -->
+        <div class="page" id="page-success">
+          <div class="success-page">
+            <div class="success-icon">✓</div>
+            <div class="success-title">Заказ принят!</div>
+            <div class="success-text">Мы получили твою заявку и свяжемся в ближайшее время для подтверждения.</div>
+            <div class="order-num">
+              <div class="order-num-label">Номер заказа</div>
+              <div class="order-num-val" id="orderNum">#ZP-0000</div>
+            </div>
+            <button class="back-home-btn" onclick="resetAndGoHome()">← Вернуться в каталог</button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Cart bar -->
+      <div class="cart-bar" id="cartBar">
+        <button class="cart-btn" onclick="showPage('cart')">
+          <div class="cart-btn-left">
+            🛒 <span class="cart-count-badge" id="cartCountBadge">0</span> товаров
+          </div>
+          <span id="cartTotal">0 ₸</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+const products = [
+  { id:1, emoji:'📱', name:'Дисплей OLED', compat:'iPhone 13 Pro', price:18500, cat:'screen' },
+  { id:2, emoji:'🔋', name:'Аккумулятор', compat:'Samsung S21', price:4200, cat:'battery' },
+  { id:3, emoji:'📸', name:'Камера основная', compat:'iPhone 12', price:9800, cat:'camera' },
+  { id:4, emoji:'📱', name:'Дисплей LCD', compat:'Xiaomi Redmi 10', price:5600, cat:'screen' },
+  { id:5, emoji:'🔋', name:'Аккумулятор', compat:'iPhone 13', price:3800, cat:'battery' },
+  { id:6, emoji:'🖼️', name:'Задняя крышка', compat:'Samsung A52', price:2100, cat:'case' },
+  { id:7, emoji:'📸', name:'Фронтальная камера', compat:'Xiaomi Mi 11', price:3400, cat:'camera' },
+  { id:8, emoji:'🖼️', name:'Корпус (рамка)', compat:'iPhone 11', price:6700, cat:'case' },
+];
+
+let cart = {};
+let currentFilter = 'all';
+let searchTimeout = null;
+let lastQuery = '';
+
+// ── AI SEARCH ──────────────────────────────────────────────────────────────
+
+async function onSearch(query) {
+  clearTimeout(searchTimeout);
+  document.getElementById('aiInterpreted').classList.remove('visible');
+  document.getElementById('manualBanner').classList.remove('visible');
+  document.getElementById('requestSent').classList.remove('visible');
+
+  if (!query.trim()) {
+    document.getElementById('aiThinking').classList.remove('visible');
+    document.getElementById('sectionLabel').textContent = 'Популярные';
+    renderProducts(currentFilter);
+    return;
+  }
+
+  lastQuery = query;
+
+  // Short debounce
+  searchTimeout = setTimeout(() => runAISearch(query), 600);
+}
+
+async function runAISearch(query) {
+  if (query !== lastQuery) return;
+
+  document.getElementById('aiThinking').classList.add('visible');
+
+  try {
+    const productList = products.map(p =>
+      `ID:${p.id} | ${p.name} | совместимость: ${p.compat} | категория: ${p.cat}`
+    ).join('\n');
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 400,
+        system: `Ты помощник в магазине запчастей для телефонов. Мастера пишут жаргонно: "зад" = задняя крышка, "акб" = аккумулятор, "экран"/"дисп" = дисплей, "самса"/"самсунг" = Samsung, "яблоко"/"айфон" = iPhone, "ксяоми"/"ксиоми"/"сяоми" = Xiaomi. Числа без модели — скорее всего модель (например "13" = iPhone 13, "а52" = Samsung A52).
+
+Каталог:
+${productList}
+
+Ответь ТОЛЬКО JSON (без markdown):
+{
+  "interpreted": "что понял из запроса одним предложением",
+  "matchedIds": [массив ID подходящих товаров, пустой если ничего],
+  "noResults": true/false
+}`,
+        messages: [{ role: "user", content: query }]
+      })
+    });
+
+    const data = await response.json();
+    const text = data.content[0].text;
+    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+
+    document.getElementById('aiThinking').classList.remove('visible');
+
+    if (parsed.interpreted) {
+      const el = document.getElementById('aiInterpreted');
+      el.innerHTML = `🤖 <strong>Понял:</strong> ${parsed.interpreted}`;
+      el.classList.add('visible');
+    }
+
+    if (parsed.matchedIds && parsed.matchedIds.length > 0) {
+      const matched = products.filter(p => parsed.matchedIds.includes(p.id));
+      document.getElementById('sectionLabel').textContent = `Найдено: ${matched.length}`;
+      renderProductList(matched);
+      // Show manual banner anyway — maybe they want something else too
+      setTimeout(() => document.getElementById('manualBanner').classList.add('visible'), 800);
+    } else {
+      document.getElementById('sectionLabel').textContent = 'Ничего не найдено';
+      renderProductList([]);
+      document.getElementById('manualBanner').classList.add('visible');
+    }
+
+  } catch (e) {
+    // Fallback to simple search if API fails
+    document.getElementById('aiThinking').classList.remove('visible');
+    const q = query.toLowerCase();
+    const matched = products.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      p.compat.toLowerCase().includes(q) ||
+      simpleAlias(q, p)
+    );
+    document.getElementById('sectionLabel').textContent = matched.length ? `Найдено: ${matched.length}` : 'Ничего не найдено';
+    renderProductList(matched);
+    if (!matched.length) document.getElementById('manualBanner').classList.add('visible');
+  }
+}
+
+function simpleAlias(q, p) {
+  const aliases = {
+    'акб': 'battery', 'батарея': 'battery', 'батар': 'battery',
+    'экран': 'screen', 'дисп': 'screen', 'дисплей': 'screen',
+    'зад': 'case', 'крышка': 'case', 'корпус': 'case',
+    'камера': 'camera', 'кам': 'camera',
+    'самса': 'samsung', 'самсунг': 'samsung',
+    'яблоко': 'iphone', 'айфон': 'iphone',
+  };
+  for (const [key, val] of Object.entries(aliases)) {
+    if (q.includes(key)) {
+      if (['battery','screen','case','camera'].includes(val) && p.cat === val) return true;
+      if (['samsung','iphone'].includes(val) && p.compat.toLowerCase().includes(val)) return true;
+    }
+  }
+  return false;
+}
+
+// ── MANUAL REQUEST MODAL ───────────────────────────────────────────────────
+
+function openManualModal() {
+  const modal = document.getElementById('manualModal');
+  modal.classList.add('visible');
+  const txt = document.getElementById('manualText');
+  if (lastQuery) txt.value = lastQuery;
+  setTimeout(() => txt.focus(), 100);
+}
+
+function closeManualModal() {
+  document.getElementById('manualModal').classList.remove('visible');
+}
+
+function closeModalIfOutside(e) {
+  if (e.target === document.getElementById('manualModal')) closeManualModal();
+}
+
+function appendHint(text) {
+  const ta = document.getElementById('manualText');
+  ta.value += text;
+  ta.focus();
+}
+
+function sendManualRequest() {
+  const text = document.getElementById('manualText').value.trim();
+  if (!text) return;
+  closeManualModal();
+  document.getElementById('manualBanner').classList.remove('visible');
+  document.getElementById('requestSent').classList.add('visible');
+  document.getElementById('manualText').value = '';
+  // In real app: send to Telegram bot API here
+}
+
+// ── RENDER ─────────────────────────────────────────────────────────────────
+
+function renderProducts(filter) {
+  const filtered = filter === 'all' ? products : products.filter(p => p.cat === filter);
+  renderProductList(filtered);
+}
+
+function renderProductList(list) {
+  const grid = document.getElementById('productGrid');
+  if (!list.length) {
+    grid.innerHTML = `<div style="grid-column:1/-1;padding:24px 0;text-align:center;color:var(--text2);font-size:13px;">Ничего не найдено</div>`;
+    return;
+  }
+  grid.innerHTML = list.map(p => `
+    <div class="product-card" onclick="openProduct(${p.id})">
+      <div class="product-img">${p.emoji}</div>
+      <div class="product-info">
+        <div class="product-name">${p.name}</div>
+        <div class="product-compat">${p.compat}</div>
+        <div class="product-footer">
+          <div class="product-price">${p.price.toLocaleString('ru')} ₸</div>
+          <button class="add-btn ${cart[p.id] ? 'added' : ''}" onclick="addToCart(event, ${p.id})">
+            ${cart[p.id] ? '✓' : '+'}
+          </button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function filterChip(el, cat) {
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  currentFilter = cat;
+  document.getElementById('searchInput').value = '';
+  document.getElementById('aiInterpreted').classList.remove('visible');
+  document.getElementById('manualBanner').classList.remove('visible');
+  document.getElementById('sectionLabel').textContent = 'Популярные';
+  renderProducts(cat);
+}
+
+function addToCart(e, id) {
+  e.stopPropagation();
+  if (cart[id]) {
+    cart[id].qty++;
+  } else {
+    const p = products.find(p => p.id === id);
+    cart[id] = { ...p, qty: 1 };
+  }
+  updateCartUI();
+  renderProductList(document.querySelectorAll('.product-card').length ? 
+    products.filter(p => document.querySelector(`[onclick="openProduct(${p.id})"]`)) : products);
+  // Re-render current view
+  const q = document.getElementById('searchInput').value;
+  if (!q) renderProducts(currentFilter);
+}
+
+function updateCartUI() {
+  const items = Object.values(cart);
+  const totalQty = items.reduce((s, i) => s + i.qty, 0);
+  const totalPrice = items.reduce((s, i) => s + i.price * i.qty, 0);
+  const bar = document.getElementById('cartBar');
+  bar.classList.toggle('visible', totalQty > 0);
+  document.getElementById('cartCountBadge').textContent = totalQty;
+  document.getElementById('cartTotal').textContent = totalPrice.toLocaleString('ru') + ' ₸';
+}
+
+function renderCart() {
+  const items = Object.values(cart);
+  const totalPrice = items.reduce((s, i) => s + i.price * i.qty, 0);
+  const delivery = 500;
+  document.getElementById('cartItems').innerHTML = items.map(item => `
+    <div class="cart-item">
+      <div class="cart-item-emoji">${item.emoji}</div>
+      <div class="cart-item-info">
+        <div class="cart-item-name">${item.name}</div>
+        <div class="cart-item-compat">${item.compat}</div>
+      </div>
+      <div class="cart-item-right">
+        <div class="cart-item-price">${(item.price * item.qty).toLocaleString('ru')} ₸</div>
+        <div class="qty-control">
+          <button class="qty-btn minus" onclick="changeQty(${item.id}, -1)">−</button>
+          <span class="qty-num">${item.qty}</span>
+          <button class="qty-btn" onclick="changeQty(${item.id}, 1)">+</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('cartSummary').innerHTML = `
+    <div class="summary-row"><span>Товары (${items.length} позиции)</span><span>${totalPrice.toLocaleString('ru')} ₸</span></div>
+    <div class="summary-row"><span>Доставка</span><span>${delivery.toLocaleString('ru')} ₸</span></div>
+    <div class="summary-row total"><span>Итого</span><span>${(totalPrice + delivery).toLocaleString('ru')} ₸</span></div>
+  `;
+}
+
+function changeQty(id, delta) {
+  if (!cart[id]) return;
+  cart[id].qty += delta;
+  if (cart[id].qty <= 0) delete cart[id];
+  updateCartUI();
+  renderCart();
+  if (Object.keys(cart).length === 0) showPage('catalog');
+}
+
+let pageHistory = ['catalog'];
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.getElementById('appContent').scrollTop = 0;
+  if (name === 'cart') renderCart();
+  if (name !== 'catalog') {
+    if (pageHistory[pageHistory.length - 1] !== name) pageHistory.push(name);
+  }
+  const bar = document.getElementById('cartBar');
+  if (name === 'catalog') updateCartUI();
+  else bar.classList.remove('visible');
+}
+
+function goBack() {
+  if (pageHistory.length > 1) {
+    pageHistory.pop();
+    showPage(pageHistory[pageHistory.length - 1]);
+  }
+}
+
+function selectRadio(el) {
+  document.querySelectorAll('.radio-option').forEach(r => r.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function submitOrder() {
+  const num = '#ZP-' + Math.floor(1000 + Math.random() * 9000);
+  document.getElementById('orderNum').textContent = num;
+  cart = {};
+  updateCartUI();
+  pageHistory = ['catalog', 'success'];
+  showPage('success');
+}
+
+function resetAndGoHome() {
+  pageHistory = ['catalog'];
+  document.getElementById('searchInput').value = '';
+  document.getElementById('aiInterpreted').classList.remove('visible');
+  document.getElementById('manualBanner').classList.remove('visible');
+  document.getElementById('requestSent').classList.remove('visible');
+  document.getElementById('sectionLabel').textContent = 'Популярные';
+  renderProducts('all');
+  showPage('catalog');
+}
+
+function openProduct(id) {
+  const e = { stopPropagation: () => {} };
+  if (!cart[id]) addToCart(e, id);
+  // Refresh current grid
+  const q = document.getElementById('searchInput').value;
+  if (!q) renderProducts(currentFilter);
+}
+
+// Init
+renderProducts('all');
+</script>
+</body>
+</html>
